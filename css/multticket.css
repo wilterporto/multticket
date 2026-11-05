@@ -1,0 +1,113 @@
+/**
+ * ---------------------------------------------------------------------
+ * Mult Ticket - Plugin GLPI 10 & 11
+ * Estilos visuais e compatibilidade com temas Claro e Escuro (Tabler)
+ * ---------------------------------------------------------------------
+ * @author Wilter Porto
+ * ---------------------------------------------------------------------
+ */
+
+/* Sinalização obrigatória de campos com 1 único asterisco vermelho */
+.required-asterisk {
+    color: #e03131 !important;
+    font-weight: 700;
+    font-size: 1.1em;
+    margin-left: 3px;
+    vertical-align: middle;
+}
+
+/* Painel de usuário no canto superior direito */
+.multticket-user-header {
+    background-color: var(--tblr-card-bg, #ffffff);
+    border: 1px solid var(--tblr-border-color, #e6e8eb);
+    border-radius: 6px;
+    padding: 8px 16px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.multticket-user-name {
+    font-weight: 600;
+    color: var(--tblr-body-color, #1e293b);
+}
+
+.multticket-last-login {
+    font-size: 0.8rem;
+    color: var(--tblr-muted, #64748b);
+}
+
+/* Área de seleção de entidades */
+.multticket-entities-container {
+    max-height: 420px;
+    overflow-y: auto;
+    border: 1px solid var(--tblr-border-color, #e6e8eb);
+    border-radius: 6px;
+    background-color: var(--tblr-bg-surface, #ffffff);
+}
+
+.multticket-entity-row {
+    transition: background-color 0.15s ease-in-out;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--tblr-border-color, #f1f3f5);
+}
+
+.multticket-entity-row:last-child {
+    border-bottom: none;
+}
+
+.multticket-entity-row:hover {
+    background-color: rgba(var(--tblr-primary-rgb, 32, 107, 196), 0.05);
+}
+
+.multticket-counter-badge {
+    font-size: 0.95rem;
+    font-weight: 600;
+}
+
+/* Badges específicos para níveis de hierarquia */
+.multticket-level-1 {
+    background-color: rgba(47, 179, 68, 0.12) !important;
+    color: #2fb344 !important;
+    border: 1px solid rgba(47, 179, 68, 0.3) !important;
+}
+
+.multticket-level-2 {
+    background-color: rgba(32, 107, 196, 0.12) !important;
+    color: #206bc4 !important;
+    border: 1px solid rgba(32, 107, 196, 0.3) !important;
+}
+
+/* Suporte específico ao Tema Escuro do GLPI 10 & 11 */
+[data-bs-theme="dark"] .multticket-user-header,
+body.theme-dark .multticket-user-header {
+    background-color: #1a2234 !important;
+    border-color: #2c3b59 !important;
+}
+
+[data-bs-theme="dark"] .multticket-entities-container,
+body.theme-dark .multticket-entities-container {
+    background-color: #1a2234 !important;
+    border-color: #2c3b59 !important;
+}
+
+[data-bs-theme="dark"] .multticket-entity-row,
+body.theme-dark .multticket-entity-row {
+    border-bottom-color: #2c3b59 !important;
+}
+
+[data-bs-theme="dark"] .multticket-entity-row:hover,
+body.theme-dark .multticket-entity-row:hover {
+    background-color: rgba(255, 255, 255, 0.05) !important;
+}
+
+[data-bs-theme="dark"] .multticket-level-1,
+body.theme-dark .multticket-level-1 {
+    background-color: rgba(47, 179, 68, 0.25) !important;
+    color: #63e6be !important;
+}
+
+[data-bs-theme="dark"] .multticket-level-2,
+body.theme-dark .multticket-level-2 {
+    background-color: rgba(32, 107, 196, 0.25) !important;
+    color: #74c0fc !important;
+}
+
