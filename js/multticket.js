@@ -100,9 +100,77 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
+    // Controle dinâmico do campo obrigatório de comentário para status Solucionado (5) ou Fechado (6)
+    const statusSelect = document.getElementById('status');
+    const solutionContainer = document.getElementById('solution_comment_container');
+    const solutionTextarea = document.getElementById('solution_comment');
+
+    function checkStatusCommentRequirement() {
+        if (!statusSelect || !solutionContainer || !solutionTextarea) return;
+        const val = parseInt(statusSelect.value, 10);
+        // 5 = Solucionado (SOLVED), 6 = Fechado (CLOSED)
+        if (val === 5 || val === 6) {
+            solutionContainer.style.display = 'block';
+            solutionTextarea.setAttribute('required', 'required');
+        } else {
+            solutionContainer.style.display = 'none';
+            solutionTextarea.removeAttribute('required');
+        }
+    }
+
+    if (statusSelect) {
+        statusSelect.addEventListener('change', checkStatusCommentRequirement);
+        checkStatusCommentRequirement();
+    }
+
     // Validação antes do envio do formulário
     if (form) {
+        // Garante que o action do formulário aponte sempre para a rota canônica atual, prevenindo envios para '/' ou '/index.php'
+        if (!form.getAttribute('action') || form.getAttribute('action') === '/index.php' || form.getAttribute('action') === '/') {
+            form.action = window.location.pathname;
+        }
+
         form.addEventListener('submit', function (e) {
+            // Reforça o action correto no momento exato do envio
+            form.action = window.location.pathname;
+
+            // Sincroniza qualquer instância do TinyMCE para o textarea antes da validação e submissão
+            if (typeof tinymce !== 'undefined') {
+                tinymce.triggerSave();
+            }
+
+            // Validação de preenchimento da Descrição / Conteúdo
+            const contentTextarea = document.querySelector('textarea[name="content"]');
+            if (contentTextarea) {
+                const tempDiv = document.createElement('div');
+                tempDiv.innerHTML = contentTextarea.value;
+                const plainText = (tempDiv.textContent || tempDiv.innerText || '').trim();
+                const hasImage = tempDiv.querySelector('img') !== null;
+                if (!plainText && !hasImage) {
+                    e.preventDefault();
+                    alert('Por favor, preencha o campo Descrição / Conteúdo do chamado.');
+                    if (typeof tinymce !== 'undefined') {
+                        const ed = tinymce.get(contentTextarea.id);
+                        if (ed) ed.focus();
+                    } else {
+                        contentTextarea.focus();
+                    }
+                    return false;
+                }
+            }
+
+            // Validação obrigatória de comentário quando status for Solucionado ou Fechado
+            if (statusSelect && solutionTextarea) {
+                const val = parseInt(statusSelect.value, 10);
+                if ((val === 5 || val === 6) && !solutionTextarea.value.trim()) {
+                    e.preventDefault();
+                    solutionContainer.style.display = 'block';
+                    solutionTextarea.focus();
+                    alert('Para chamados com status Solucionado ou Fechado, o preenchimento do comentário de solução/fechamento é obrigatório!');
+                    return false;
+                }
+            }
+
             const checkedCount = document.querySelectorAll('.multticket-entity-checkbox:checked').length;
             const errorAlert = document.getElementById('multticket-validation-alert');
 
@@ -114,14 +182,17 @@ document.addEventListener('DOMContentLoaded', function () {
                 } else {
                     alert('Por favor, selecione ao menos uma entidade para registrar os chamados.');
                 }
+                return false;
             } else {
                 if (errorAlert) {
                     errorAlert.classList.add('d-none');
                 }
                 const submitBtn = document.getElementById('btn-submit-multticket');
                 if (submitBtn) {
-                    submitBtn.disabled = true;
                     submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status"></span> Processando chamados...';
+                    setTimeout(function() {
+                        submitBtn.disabled = true;
+                    }, 50);
                 }
             }
         });

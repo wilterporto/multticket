@@ -20,6 +20,7 @@ define('PLUGIN_MULTTICKET_MAX_GLPI', '11.9.99');
 
 // Carregamento dos enumeradores do plugin
 require_once __DIR__ . '/inc/enum/tickettype.class.php';
+require_once __DIR__ . '/inc/enum/ticketstatus.class.php';
 require_once __DIR__ . '/inc/enum/ticketurgency.class.php';
 require_once __DIR__ . '/inc/enum/ticketimpact.class.php';
 require_once __DIR__ . '/inc/enum/ticketpriority.class.php';

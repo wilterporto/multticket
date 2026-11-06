@@ -41,8 +41,10 @@ class PluginMultticketTicket extends CommonDBTM {
         }
 
         // 2. Sanitização e Validação Estrita dos Campos Obrigatórios
-        $title   = trim(strip_tags($formData['name'] ?? ''));
-        $content = trim($formData['content'] ?? '');
+        $title      = trim(strip_tags($formData['name'] ?? ''));
+        $rawContent = trim((string)($formData['content'] ?? ''));
+        $hasImage   = stripos($rawContent, '<img') !== false;
+        $plainText  = trim(strip_tags($rawContent));
 
         if (empty($title)) {
             return [
@@ -54,7 +56,7 @@ class PluginMultticketTicket extends CommonDBTM {
             ];
         }
 
-        if (empty($content)) {
+        if (empty($plainText) && !$hasImage) {
             return [
                 'success'  => false,
                 'message'  => __('O campo Descrição / Conteúdo do Chamado é obrigatório!', 'multticket'),
@@ -62,6 +64,31 @@ class PluginMultticketTicket extends CommonDBTM {
                 'errors'   => [],
                 'batch_id' => ''
             ];
+        }
+
+        $content = $rawContent;
+
+        // Validação do Status Inicial do Chamado (com Enumerador)
+        $status = isset($formData['status']) ? (int)$formData['status'] : PluginMultticketTicketStatus::INCOMING;
+        $validStatuses = array_keys(PluginMultticketTicketStatus::getAll());
+        if (!in_array($status, $validStatuses, true)) {
+            $status = PluginMultticketTicketStatus::INCOMING;
+        }
+
+        // Se status for Solucionado ou Fechado, o comentário de solução é obrigatório
+        $solutionComment = trim((string)($formData['solution_comment'] ?? ''));
+        if (PluginMultticketTicketStatus::requiresComment($status)) {
+            $commentPlainText = trim(strip_tags($solutionComment));
+            $commentHasImage  = stripos($solutionComment, '<img') !== false;
+            if (empty($commentPlainText) && !$commentHasImage) {
+                return [
+                    'success'  => false,
+                    'message'  => __('Para chamados com status Solucionado ou Fechado, o comentário de solução/fechamento é obrigatório!', 'multticket'),
+                    'created'  => [],
+                    'errors'   => [],
+                    'batch_id' => ''
+                ];
+            }
         }
 
         if (empty($selectedEntities) || !is_array($selectedEntities)) {
@@ -207,7 +234,7 @@ class PluginMultticketTicket extends CommonDBTM {
                 'urgency'             => $urgency,
                 'impact'              => $impact,
                 'priority'            => $priority,
-                'status'              => CommonITILObject::INCOMING, // Status inicial: Novo
+                'status'              => $status,
                 '_users_id_requester' => $requesterId,
             ];
 
@@ -240,6 +267,37 @@ class PluginMultticketTicket extends CommonDBTM {
             $ticketId = $ticket->add($input);
 
             if ($ticketId && $ticketId > 0) {
+                // Se o status for Solucionado ou Fechado, registra formalmente a Solução ITIL
+                if (PluginMultticketTicketStatus::requiresComment($status) && !empty($solutionComment) && class_exists('ITILSolution')) {
+                    try {
+                        $solution = new ITILSolution();
+                        $solStatus = ($status === PluginMultticketTicketStatus::CLOSED)
+                            ? CommonITILValidation::ACCEPTED
+                            : CommonITILValidation::WAITING;
+                        $solution->add([
+                            'itemtype' => 'Ticket',
+                            'items_id' => (int)$ticketId,
+                            'content'  => $solutionComment,
+                            'status'   => $solStatus
+                        ]);
+                    } catch (\Throwable $e) {
+                        error_log("Erro ao salvar solução no chamado #{$ticketId}: " . $e->getMessage());
+                    }
+                }
+
+                // Se o status for Fechado, consolida o fechamento e a data de encerramento
+                if ($status === PluginMultticketTicketStatus::CLOSED) {
+                    try {
+                        $ticket->update([
+                            'id'        => (int)$ticketId,
+                            'status'    => CommonITILObject::CLOSED,
+                            'closedate' => date('Y-m-d H:i:s')
+                        ]);
+                    } catch (\Throwable $e) {
+                        error_log("Erro ao consolidar fechamento no chamado #{$ticketId}: " . $e->getMessage());
+                    }
+                }
+
                 // Persiste os valores de todos os containers de campos adicionais configurados
                 if (!empty($additionalFieldsByContainer) && class_exists('PluginFieldsContainer')) {
                     foreach ($additionalFieldsByContainer as $cId => $containerPayload) {
@@ -263,7 +321,8 @@ class PluginMultticketTicket extends CommonDBTM {
                     'ticket_id'    => (int)$ticketId,
                     'entity_id'    => $entityId,
                     'entity_name'  => $entityData['completename'],
-                    'entity_level' => $entityData['level']
+                    'entity_level' => $entityData['level'],
+                    'status'       => $status
                 ];
 
                 // Se solicitada a ligação entre os chamados do lote
@@ -296,9 +355,10 @@ class PluginMultticketTicket extends CommonDBTM {
             'tickets_created'   => $ticketIdsList,
             'entities_selected' => $entityIdsList,
             'details'           => sprintf(
-                'Lote criado com %d chamado(s) nas entidades com nível <= 2. Título: "%s".',
+                'Lote criado com %d chamado(s) nas entidades com nível <= 2. Título: "%s", Status: %s.',
                 count($createdTickets),
-                $title
+                $title,
+                PluginMultticketTicketStatus::getLabel($status)
             ),
             'entities_id'       => (int)($_SESSION['glpiactive_entity'] ?? 0)
         ]);

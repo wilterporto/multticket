@@ -38,12 +38,12 @@ if ($userObj->getFromDB($userId)) {
     }
 }
 
+$auditUrl = $CFG_GLPI['root_doc'] . '/plugins/multticket/front/audit.php';
+
 // =========================================================================
 // PROCESSAMENTO DE EXCLUSÃO LÓGICA (PROTEÇÃO CONTRA DEPENDÊNCIA DE DADOS)
 // =========================================================================
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'logical_delete') {
-    Session::checkCSRF($_POST);
-
     $auditId = isset($_POST['audit_id']) ? (int)$_POST['audit_id'] : 0;
     if ($auditId > 0) {
         $deleted = PluginMultticketAudit::logicalDelete($auditId);
@@ -51,7 +51,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             Session::addMessageAfterRedirect(__('Registro de auditoria excluído logicamente com sucesso.', 'multticket'), false, INFO);
         }
     }
-    Html::redirect($_SERVER['PHP_SELF']);
+    Html::redirect($auditUrl);
 }
 
 // =========================================================================
@@ -79,7 +79,7 @@ $totalPages  = $auditData['pages'];
 $totalCount  = $auditData['total'];
 $currentPage = $auditData['current_page'];
 
-Html::header(__('Auditoria & Histórico - Mult Ticket', 'multticket'), $_SERVER['PHP_SELF'], 'helpdesk', 'PluginMultticketMenu');
+Html::header(__('Auditoria & Histórico - Mult Ticket', 'multticket'), $auditUrl, 'helpdesk', 'PluginMultticketMenu');
 ?>
 
 <div class="container-xl my-3">
@@ -148,7 +148,7 @@ Html::header(__('Auditoria & Histórico - Mult Ticket', 'multticket'), $_SERVER[
             </h4>
         </div>
         <div class="card-body">
-            <form method="get" action="<?php echo htmlspecialchars($_SERVER['PHP_SELF'], ENT_QUOTES, 'UTF-8'); ?>" class="row g-2 align-items-end">
+            <form method="get" action="<?php echo htmlspecialchars($auditUrl, ENT_QUOTES, 'UTF-8'); ?>" class="row g-2 align-items-end">
                 <div class="col-md-3">
                     <label class="form-label small text-muted"><?php echo __('Pesquisa Textual', 'multticket'); ?></label>
                     <input type="text" name="search" class="form-control form-control-sm" placeholder="<?php echo __('Usuário, lote, IP ou detalhes...', 'multticket'); ?>" value="<?php echo htmlspecialchars($search, ENT_QUOTES, 'UTF-8'); ?>">
@@ -180,7 +180,7 @@ Html::header(__('Auditoria & Histórico - Mult Ticket', 'multticket'), $_SERVER[
                     <button type="submit" class="btn btn-sm btn-primary flex-grow-1">
                         <i class="ti ti-search me-1"></i> <?php echo __('Filtrar', 'multticket'); ?>
                     </button>
-                    <a href="<?php echo htmlspecialchars($_SERVER['PHP_SELF'], ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-sm btn-outline-secondary">
+                    <a href="<?php echo htmlspecialchars($auditUrl, ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-sm btn-outline-secondary">
                         <i class="ti ti-refresh me-1"></i> <?php echo __('Limpar', 'multticket'); ?>
                     </a>
                 </div>
@@ -285,7 +285,7 @@ Html::header(__('Auditoria & Histórico - Mult Ticket', 'multticket'), $_SERVER[
                                     </td>
                                     <td class="text-end">
                                         <!-- Formulário com proteção CSRF para Exclusão Lógica -->
-                                        <form method="post" action="<?php echo htmlspecialchars($_SERVER['PHP_SELF'], ENT_QUOTES, 'UTF-8'); ?>" class="d-inline" onsubmit="return confirm('<?php echo __('Confirmar exclusão lógica deste registro de auditoria? (Apenas permitido se não houver dependências ativas)', 'multticket'); ?>');">
+                                        <form method="post" action="<?php echo htmlspecialchars($auditUrl, ENT_QUOTES, 'UTF-8'); ?>" class="d-inline" onsubmit="return confirm('<?php echo __('Confirmar exclusão lógica deste registro de auditoria? (Apenas permitido se não houver dependências ativas)', 'multticket'); ?>');">
                                             <input type="hidden" name="action" value="logical_delete">
                                             <input type="hidden" name="audit_id" value="<?php echo $row['id']; ?>">
                                             <?php Html::closeForm(); ?>
@@ -316,7 +316,7 @@ Html::header(__('Auditoria & Histórico - Mult Ticket', 'multticket'), $_SERVER[
                 <ul class="pagination m-0 ms-auto">
                     <!-- Página Anterior -->
                     <li class="page-item <?php echo ($currentPage <= 1) ? 'disabled' : ''; ?>">
-                        <a class="page-link" href="<?php echo htmlspecialchars($_SERVER['PHP_SELF'] . '?page=' . ($currentPage - 1) . '&search=' . urlencode($search) . '&action_filter=' . urlencode($action) . '&entities_id=' . urlencode($entFilter) . '&date_start=' . urlencode($dateStart) . '&date_end=' . urlencode($dateEnd), ENT_QUOTES, 'UTF-8'); ?>">
+                        <a class="page-link" href="<?php echo htmlspecialchars($auditUrl . '?page=' . ($currentPage - 1) . '&search=' . urlencode($search) . '&action_filter=' . urlencode($action) . '&entities_id=' . urlencode($entFilter) . '&date_start=' . urlencode($dateStart) . '&date_end=' . urlencode($dateEnd), ENT_QUOTES, 'UTF-8'); ?>">
                             <i class="ti ti-chevron-left"></i>
                         </a>
                     </li>
@@ -327,7 +327,7 @@ Html::header(__('Auditoria & Histórico - Mult Ticket', 'multticket'), $_SERVER[
                         for ($p = $startPage; $p <= $endPage; $p++):
                     ?>
                         <li class="page-item <?php echo ($p === $currentPage) ? 'active' : ''; ?>">
-                            <a class="page-link" href="<?php echo htmlspecialchars($_SERVER['PHP_SELF'] . '?page=' . $p . '&search=' . urlencode($search) . '&action_filter=' . urlencode($action) . '&entities_id=' . urlencode($entFilter) . '&date_start=' . urlencode($dateStart) . '&date_end=' . urlencode($dateEnd), ENT_QUOTES, 'UTF-8'); ?>">
+                            <a class="page-link" href="<?php echo htmlspecialchars($auditUrl . '?page=' . $p . '&search=' . urlencode($search) . '&action_filter=' . urlencode($action) . '&entities_id=' . urlencode($entFilter) . '&date_start=' . urlencode($dateStart) . '&date_end=' . urlencode($dateEnd), ENT_QUOTES, 'UTF-8'); ?>">
                                 <?php echo $p; ?>
                             </a>
                         </li>
@@ -335,7 +335,7 @@ Html::header(__('Auditoria & Histórico - Mult Ticket', 'multticket'), $_SERVER[
 
                     <!-- Próxima Página -->
                     <li class="page-item <?php echo ($currentPage >= $totalPages) ? 'disabled' : ''; ?>">
-                        <a class="page-link" href="<?php echo htmlspecialchars($_SERVER['PHP_SELF'] . '?page=' . ($currentPage + 1) . '&search=' . urlencode($search) . '&action_filter=' . urlencode($action) . '&entities_id=' . urlencode($entFilter) . '&date_start=' . urlencode($dateStart) . '&date_end=' . urlencode($dateEnd), ENT_QUOTES, 'UTF-8'); ?>">
+                        <a class="page-link" href="<?php echo htmlspecialchars($auditUrl . '?page=' . ($currentPage + 1) . '&search=' . urlencode($search) . '&action_filter=' . urlencode($action) . '&entities_id=' . urlencode($entFilter) . '&date_start=' . urlencode($dateStart) . '&date_end=' . urlencode($dateEnd), ENT_QUOTES, 'UTF-8'); ?>">
                             <i class="ti ti-chevron-right"></i>
                         </a>
                     </li>

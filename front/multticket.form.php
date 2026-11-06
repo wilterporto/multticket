@@ -48,7 +48,7 @@ $processResult = null;
 // =========================================================================
 // PROCESSAMENTO DO FORMULÁRIO COM PROTEÇÃO CSRF
 // =========================================================================
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_multticket'])) {
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['submit_multticket']) || isset($_POST['name']))) {
     $selectedEntities = isset($_POST['entities']) && is_array($_POST['entities'])
         ? array_map('intval', $_POST['entities'])
         : [];
@@ -69,7 +69,7 @@ $availableEntities = PluginMultticketEntity::getEntitiesUpToLevel2(true);
 $summaryCount = PluginMultticketEntity::getEntityCountSummary();
 
 // Renderização do cabeçalho oficial do GLPI
-Html::header(__('Chamados em Múltiplas Entidades', 'multticket'), $_SERVER['PHP_SELF'], 'helpdesk', 'PluginMultticketMenu');
+Html::header(__('Chamados em Múltiplas Entidades', 'multticket'), $CFG_GLPI['root_doc'] . '/plugins/multticket/front/multticket.form.php', 'helpdesk', 'PluginMultticketMenu');
 ?>
 
 <div class="container-xl my-3">
@@ -133,7 +133,72 @@ Html::header(__('Chamados em Múltiplas Entidades', 'multticket'), $_SERVER['PHP
     </div>
 
     <!-- RESULTADOS DO PROCESSAMENTO RECENTE -->
+    <?php if ($processResult !== null && !$processResult['success']): ?>
+        <div class="alert alert-danger shadow-sm mb-4" role="alert">
+            <div class="d-flex align-items-center">
+                <i class="ti ti-alert-triangle fs-2 me-2"></i>
+                <div>
+                    <strong><?php echo __('Erro ao processar criação de chamados:', 'multticket'); ?></strong><br>
+                    <?php echo htmlspecialchars($processResult['message'], ENT_QUOTES, 'UTF-8'); ?>
+                </div>
+            </div>
+        </div>
+
+        <!-- MODAL INFORMATIVO COM ÍCONE ILUSTRATIVO E BOTÃO PARA AÇÃO (REGRA GLOBAL) -->
+        <div class="modal modal-blur fade" id="modalMultticketError" tabindex="-1" role="dialog" aria-hidden="true">
+            <div class="modal-dialog modal-sm modal-dialog-centered" role="document">
+                <div class="modal-content">
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    <div class="modal-status bg-danger"></div>
+                    <div class="modal-body text-center py-4">
+                        <i class="ti ti-alert-triangle fs-1 text-danger mb-2"></i>
+                        <h3><?php echo __('Validação do Chamado', 'multticket'); ?></h3>
+                        <div class="text-muted">
+                            <?php echo htmlspecialchars($processResult['message'], ENT_QUOTES, 'UTF-8'); ?>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <div class="w-100">
+                            <button type="button" class="btn btn-danger w-100" data-bs-dismiss="modal">
+                                <i class="ti ti-check me-1"></i> <?php echo __('Entendido, vou corrigir', 'multticket'); ?>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            var errModalEl = document.getElementById('modalMultticketError');
+            if (errModalEl && typeof bootstrap !== 'undefined') {
+                var errModal = new bootstrap.Modal(errModalEl);
+                errModal.show();
+            }
+        });
+        </script>
+    <?php endif; ?>
+
     <?php if ($processResult !== null && !empty($processResult['created'])): ?>
+        <!-- POPUP FLUTUANTE DE SUCESSO SEM BOTÕES DE CONFIRMAÇÃO (REGRA GLOBAL) -->
+        <div class="position-fixed top-0 end-0 p-3" style="z-index: 1090">
+            <div id="toastMultticketSuccess" class="toast align-items-center text-white bg-success border-0 shadow-lg" role="alert" aria-live="assertive" aria-atomic="true">
+                <div class="d-flex">
+                    <div class="toast-body d-flex align-items-center fs-5">
+                        <i class="ti ti-circle-check fs-2 me-2"></i>
+                        <?php echo htmlspecialchars($processResult['message'], ENT_QUOTES, 'UTF-8'); ?>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            var toastEl = document.getElementById('toastMultticketSuccess');
+            if (toastEl && typeof bootstrap !== 'undefined') {
+                var toast = new bootstrap.Toast(toastEl, { delay: 6000 });
+                toast.show();
+            }
+        });
+        </script>
         <div class="card card-success mb-4 shadow-sm border-success">
             <div class="card-header bg-success-lt d-flex justify-content-between align-items-center">
                 <h3 class="card-title text-success mb-0">
@@ -151,6 +216,7 @@ Html::header(__('Chamados em Múltiplas Entidades', 'multticket'), $_SERVER['PHP
                                 <th><?php echo __('ID Chamado', 'multticket'); ?></th>
                                 <th><?php echo __('Entidade Alvo', 'multticket'); ?></th>
                                 <th><?php echo __('Nível Hierárquico', 'multticket'); ?></th>
+                                <th><?php echo __('Status', 'multticket'); ?></th>
                                 <th class="text-end"><?php echo __('Ações', 'multticket'); ?></th>
                             </tr>
                         </thead>
@@ -174,6 +240,18 @@ Html::header(__('Chamados em Múltiplas Entidades', 'multticket'), $_SERVER['PHP
                                                 $badge['badge_class'],
                                                 $badge['icon'],
                                                 $badge['label']
+                                            );
+                                        ?>
+                                    </td>
+                                    <td>
+                                        <?php
+                                            $stVal = (int)($tkt['status'] ?? PluginMultticketTicketStatus::INCOMING);
+                                            $stBadge = PluginMultticketTicketStatus::getBadgeInfo($stVal);
+                                            echo sprintf(
+                                                '<span class="badge %s"><i class="%s me-1"></i>%s</span>',
+                                                $stBadge['badge_class'],
+                                                $stBadge['icon'],
+                                                PluginMultticketTicketStatus::getLabel($stVal)
                                             );
                                         ?>
                                     </td>
@@ -202,7 +280,8 @@ Html::header(__('Chamados em Múltiplas Entidades', 'multticket'), $_SERVER['PHP
     </div>
 
     <!-- FORMULÁRIO PRINCIPAL -->
-    <form id="multticket-form" method="post" action="<?php echo htmlspecialchars($_SERVER['PHP_SELF'], ENT_QUOTES, 'UTF-8'); ?>">
+    <form id="multticket-form" method="post" action="<?php echo htmlspecialchars($CFG_GLPI['root_doc'] . '/plugins/multticket/front/multticket.form.php', ENT_QUOTES, 'UTF-8'); ?>">
+        <input type="hidden" name="submit_multticket" value="1">
         <div class="row row-cards">
             <!-- COLUNA ESQUERDA: DADOS DO CHAMADO -->
             <div class="col-lg-7">
@@ -216,17 +295,29 @@ Html::header(__('Chamados em Múltiplas Entidades', 'multticket'), $_SERVER['PHP
                         <!-- TÍTULO DO CHAMADO (OBRIGATÓRIO COM ASTERISCO VERMELHO) -->
                         <div class="mb-3">
                             <label for="name" class="form-label">
-                                <?php echo __('Título do Chamado', 'multticket'); ?> <span class="required-asterisk">*</span>
+                                <?php echo __('Título do Chamado', 'multticket'); ?> <span class="required-asterisk" style="color: red;">*</span>
                             </label>
-                            <input type="text" class="form-control" id="name" name="name" required placeholder="<?php echo __('Ex: Atualização preventiva de segurança / Manutenção programada', 'multticket'); ?>" maxlength="255">
+                            <input type="text" class="form-control" id="name" name="name" required placeholder="<?php echo __('Ex: Atualização preventiva de segurança / Manutenção programada', 'multticket'); ?>" maxlength="255" value="<?php echo htmlspecialchars($_POST['name'] ?? '', ENT_QUOTES, 'UTF-8'); ?>">
                         </div>
 
-                        <!-- DESCRIÇÃO / CONTEÚDO (OBRIGATÓRIO COM ASTERISCO VERMELHO) -->
+                        <!-- DESCRIÇÃO / CONTEÚDO (TEXTO RICO COM FORMATAÇÃO, IMAGENS E HIPERLINKS - OBRIGATÓRIO) -->
                         <div class="mb-3">
                             <label for="content" class="form-label">
-                                <?php echo __('Descrição / Conteúdo', 'multticket'); ?> <span class="required-asterisk">*</span>
+                                <?php echo __('Descrição / Conteúdo', 'multticket'); ?> <span class="required-asterisk" style="color: red;">*</span>
                             </label>
-                            <textarea class="form-control" id="content" name="content" rows="8" required placeholder="<?php echo __('Descreva os detalhes da solicitação que serão replicados para cada entidade selecionada...', 'multticket'); ?>"></textarea>
+                            <?php
+                            $contentRand = mt_rand();
+                            Html::textarea([
+                                'name'            => 'content',
+                                'editor_id'       => 'content_' . $contentRand,
+                                'rand'            => $contentRand,
+                                'value'           => $_POST['content'] ?? '',
+                                'enable_richtext' => true,
+                                'enable_images'   => true,
+                                'display'         => true,
+                                'rows'            => 10,
+                            ]);
+                            ?>
                         </div>
 
                         <!-- PROPRIEDADES ITIL COM ENUMERADORES -->
@@ -234,42 +325,86 @@ Html::header(__('Chamados em Múltiplas Entidades', 'multticket'), $_SERVER['PHP
                             <!-- TIPO (ENUMERADOR - OBRIGATÓRIO COM ASTERISCO VERMELHO) -->
                             <div class="col-sm-6">
                                 <label for="type" class="form-label">
-                                    <?php echo __('Tipo do Chamado', 'multticket'); ?> <span class="required-asterisk">*</span>
+                                    <?php echo __('Tipo do Chamado', 'multticket'); ?> <span class="required-asterisk" style="color: red;">*</span>
                                 </label>
                                 <select class="form-select" id="type" name="type" required>
-                                    <?php echo PluginMultticketTicketType::getHtmlOptions((int)$defaultConfig['default_type']); ?>
+                                    <?php
+                                    $selectedType = isset($_POST['type']) ? (int)$_POST['type'] : (int)($defaultConfig['default_type'] ?? PluginMultticketTicketType::DEMAND);
+                                    echo PluginMultticketTicketType::getHtmlOptions($selectedType);
+                                    ?>
+                                </select>
+                            </div>
+
+                            <!-- STATUS INICIAL DO CHAMADO (ENUMERADOR - OBRIGATÓRIO COM ASTERISCO VERMELHO) -->
+                            <div class="col-sm-6">
+                                <label for="status" class="form-label">
+                                    <?php echo __('Status Inicial do Chamado', 'multticket'); ?> <span class="required-asterisk" style="color: red;">*</span>
+                                </label>
+                                <select class="form-select" id="status" name="status" required>
+                                    <?php
+                                    $selectedStatus = isset($_POST['status']) ? (int)$_POST['status'] : PluginMultticketTicketStatus::INCOMING;
+                                    echo PluginMultticketTicketStatus::getHtmlOptions($selectedStatus);
+                                    ?>
                                 </select>
                             </div>
 
                             <!-- URGÊNCIA (ENUMERADOR) -->
-                            <div class="col-sm-6">
+                            <div class="col-sm-4">
                                 <label for="urgency" class="form-label">
                                     <?php echo __('Urgência', 'multticket'); ?>
                                 </label>
                                 <select class="form-select" id="urgency" name="urgency">
-                                    <?php echo PluginMultticketUrgency::getHtmlOptions((int)$defaultConfig['default_urgency']); ?>
+                                    <?php
+                                    $selectedUrgency = isset($_POST['urgency']) ? (int)$_POST['urgency'] : (int)($defaultConfig['default_urgency'] ?? PluginMultticketUrgency::MEDIUM);
+                                    echo PluginMultticketUrgency::getHtmlOptions($selectedUrgency);
+                                    ?>
                                 </select>
                             </div>
 
                             <!-- IMPACTO (ENUMERADOR) -->
-                            <div class="col-sm-6">
+                            <div class="col-sm-4">
                                 <label for="impact" class="form-label">
                                     <?php echo __('Impacto', 'multticket'); ?>
                                 </label>
                                 <select class="form-select" id="impact" name="impact">
-                                    <?php echo PluginMultticketImpact::getHtmlOptions((int)$defaultConfig['default_impact']); ?>
+                                    <?php
+                                    $selectedImpact = isset($_POST['impact']) ? (int)$_POST['impact'] : (int)($defaultConfig['default_impact'] ?? PluginMultticketImpact::MEDIUM);
+                                    echo PluginMultticketImpact::getHtmlOptions($selectedImpact);
+                                    ?>
                                 </select>
                             </div>
 
                             <!-- PRIORIDADE (ENUMERADOR) -->
-                            <div class="col-sm-6">
+                            <div class="col-sm-4">
                                 <label for="priority" class="form-label">
                                     <?php echo __('Prioridade', 'multticket'); ?>
                                 </label>
                                 <select class="form-select" id="priority" name="priority">
-                                    <?php echo PluginMultticketPriority::getHtmlOptions(PluginMultticketPriority::MEDIUM); ?>
+                                    <?php
+                                    $selectedPriority = isset($_POST['priority']) ? (int)$_POST['priority'] : PluginMultticketPriority::MEDIUM;
+                                    echo PluginMultticketPriority::getHtmlOptions($selectedPriority);
+                                    ?>
                                 </select>
                             </div>
+                        </div>
+
+                        <!-- COMENTÁRIO DE SOLUÇÃO / FECHAMENTO (OBRIGATÓRIO QUANDO STATUS FOR SOLUCIONADO OU FECHADO) -->
+                        <?php
+                            $isSolvedOrClosed = isset($_POST['status']) && PluginMultticketTicketStatus::requiresComment((int)$_POST['status']);
+                        ?>
+                        <div id="solution_comment_container" class="mb-3 p-3 border border-warning rounded bg-warning-lt" style="display: <?php echo $isSolvedOrClosed ? 'block' : 'none'; ?>;">
+                            <div class="d-flex align-items-center mb-2">
+                                <i class="ti ti-message-check fs-2 text-warning me-2"></i>
+                                <div>
+                                    <label for="solution_comment" class="form-label mb-0 fw-bold text-dark">
+                                        <?php echo __('Comentário de Solução / Fechamento', 'multticket'); ?> <span class="required-asterisk" style="color: red;">*</span>
+                                    </label>
+                                    <div class="text-muted small">
+                                        <?php echo __('Obrigatório: Como o status do chamado foi definido como Solucionado ou Fechado, insira o comentário ou solução do atendimento.', 'multticket'); ?>
+                                    </div>
+                                </div>
+                            </div>
+                            <textarea class="form-control" id="solution_comment" name="solution_comment" rows="4" placeholder="<?php echo __('Descreva a solução aplicada ou o motivo do encerramento do chamado...', 'multticket'); ?>" <?php echo $isSolvedOrClosed ? 'required' : ''; ?>><?php echo htmlspecialchars($_POST['solution_comment'] ?? '', ENT_QUOTES, 'UTF-8'); ?></textarea>
                         </div>
 
                         <!-- ITIL CATEGORY & ORIGEM -->
@@ -455,6 +590,8 @@ Html::header(__('Chamados em Múltiplas Entidades', 'multticket'), $_SERVER['PHP
         </div>
         <?php Html::closeForm(); ?>
 </div>
+
+<script src="<?php echo $CFG_GLPI['root_doc']; ?>/plugins/multticket/js/multticket.js?v=<?php echo PLUGIN_MULTTICKET_VERSION . '_' . time(); ?>"></script>
 
 <?php
 Html::footer();
