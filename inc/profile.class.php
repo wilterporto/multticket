@@ -14,7 +14,7 @@ if (!defined('GLPI_ROOT')) {
     die("Acesso direto não permitido.");
 }
 
-class PluginMultticketProfile extends Profile {
+class PluginMultticketProfile extends CommonDBTM {
 
     public static $rightname = 'profile';
 
@@ -60,8 +60,12 @@ class PluginMultticketProfile extends Profile {
      * @param boolean $closeform
      * @return void
      */
-    public function showForm($profiles_id = 0, $openform = true, $closeform = true) {
+    public function showForm($ID, array $options = []) {
         global $DB;
+
+        $profiles_id = (int)$ID;
+        $openform    = $options['openform'] ?? true;
+        $closeform   = $options['closeform'] ?? true;
 
         $canedit = Session::haveRightsOr(self::$rightname, [CREATE, UPDATE, PURGE]);
 
@@ -135,6 +139,32 @@ class PluginMultticketProfile extends Profile {
 
         echo "</div>"; // card-body
         echo "</div>"; // card
+        return true;
+    }
+
+    /**
+     * Verifica se o usuário autenticado é SuperAdmin ou possui permissões administrativas globais (config UPDATE e profile UPDATE)
+     * Compatível com GLPI 10 e GLPI 11 (onde Session::isSuperAdmin() não existe)
+     *
+     * @return boolean
+     */
+    public static function isSuperAdmin(): bool {
+        if (!Session::getLoginUserID()) {
+            return false;
+        }
+
+        $activeProfileId   = (int)($_SESSION['glpiactiveprofile']['id'] ?? 0);
+        $activeProfileName = (string)($_SESSION['glpiactiveprofile']['name'] ?? '');
+
+        if ($activeProfileId === 4 || stripos($activeProfileName, 'super-admin') !== false) {
+            return true;
+        }
+
+        if (Session::haveRight('config', UPDATE) && Session::haveRight('profile', UPDATE)) {
+            return true;
+        }
+
+        return false;
     }
 
     /**

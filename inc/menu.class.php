@@ -46,7 +46,7 @@ class PluginMultticketMenu extends CommonGLPI {
         ];
 
         // Opções exclusivas para SuperAdmin
-        if (Session::isSuperAdmin()) {
+        if (PluginMultticketProfile::isSuperAdmin()) {
             $menu['options']['audit'] = [
                 'title' => __('Auditoria & Histórico', 'multticket'),
                 'page'  => '/plugins/multticket/front/audit.php',

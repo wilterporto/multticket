@@ -26,12 +26,21 @@ require_once __DIR__ . '/inc/enum/ticketpriority.class.php';
 require_once __DIR__ . '/inc/enum/auditaction.class.php';
 require_once __DIR__ . '/inc/enum/entitylevel.class.php';
 
+// Carregamento explícito das classes do plugin (garante compatibilidade total com GLPI 10 e 11)
+require_once __DIR__ . '/inc/profile.class.php';
+require_once __DIR__ . '/inc/config.class.php';
+require_once __DIR__ . '/inc/audit.class.php';
+require_once __DIR__ . '/inc/entity.class.php';
+require_once __DIR__ . '/inc/ticket.class.php';
+require_once __DIR__ . '/inc/menu.class.php';
+
 /**
  * Inicialização dos hooks e registros do plugin no ciclo de vida do GLPI
  *
  * @return void
  */
-function plugin_init_multticket(): void {
+function plugin_init_multticket(): void
+{
     global $PLUGIN_HOOKS;
 
     // Conformidade com proteção de tokens CSRF do GLPI
@@ -72,14 +81,15 @@ function plugin_init_multticket(): void {
  *
  * @return array
  */
-function plugin_version_multticket(): array {
+function plugin_version_multticket(): array
+{
     return [
-        'name'           => 'Mult Ticket - Chamados em Múltiplas Entidades',
-        'version'        => PLUGIN_MULTTICKET_VERSION,
-        'author'         => 'Wilter Porto',
-        'license'        => 'GPLv3+',
-        'homepage'       => '',
-        'requirements'   => [
+        'name' => 'Mult Ticket - Chamados em Múltiplas Entidades',
+        'version' => PLUGIN_MULTTICKET_VERSION,
+        'author' => 'Wilter Porto',
+        'license' => 'GPLv3+',
+        'homepage' => '',
+        'requirements' => [
             'glpi' => [
                 'min' => PLUGIN_MULTTICKET_MIN_GLPI,
                 'max' => PLUGIN_MULTTICKET_MAX_GLPI
@@ -93,9 +103,12 @@ function plugin_version_multticket(): array {
  *
  * @return boolean
  */
-function plugin_multticket_check_prerequisites(): bool {
-    if (version_compare(GLPI_VERSION, PLUGIN_MULTTICKET_MIN_GLPI, 'lt')
-        || version_compare(GLPI_VERSION, PLUGIN_MULTTICKET_MAX_GLPI, 'gt')) {
+function plugin_multticket_check_prerequisites(): bool
+{
+    if (
+        version_compare(GLPI_VERSION, PLUGIN_MULTTICKET_MIN_GLPI, 'lt')
+        || version_compare(GLPI_VERSION, PLUGIN_MULTTICKET_MAX_GLPI, 'gt')
+    ) {
         echo sprintf(
             __('Este plugin requer GLPI entre %1$s e %2$s (Versão detectada: %3$s)', 'multticket'),
             PLUGIN_MULTTICKET_MIN_GLPI,
@@ -119,7 +132,8 @@ function plugin_multticket_check_prerequisites(): bool {
  * @param boolean $verbose
  * @return boolean
  */
-function plugin_multticket_check_config(bool $verbose = false): bool {
+function plugin_multticket_check_config(bool $verbose = false): bool
+{
     return true;
 }
 

@@ -10,7 +10,12 @@
  * ---------------------------------------------------------------------
  */
 
-include ("../../../inc/includes.php");
+// Compatibilidade de inicialização: GLPI 11 (Symfony Kernel) e GLPI 10 (Legacy)
+if (!defined('GLPI_ROOT')) {
+    include ("../../../inc/includes.php");
+}
+
+global $CFG_GLPI;
 
 // Verificação de permissão de acesso configurada no Perfil
 Session::checkLoginUser();
@@ -36,6 +41,7 @@ if ($userObj->getFromDB($userId)) {
 // Configurações padrão para a entidade atual
 $currentEntityId = (int)($_SESSION['glpiactive_entity'] ?? 0);
 $defaultConfig   = PluginMultticketConfig::getConfigForEntity($currentEntityId);
+$enabledAdditionalFields = PluginMultticketConfig::getEnabledAdditionalFieldsForTicketForm($currentEntityId);
 
 $processResult = null;
 
@@ -43,8 +49,6 @@ $processResult = null;
 // PROCESSAMENTO DO FORMULÁRIO COM PROTEÇÃO CSRF
 // =========================================================================
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_multticket'])) {
-    Session::checkCSRF($_POST);
-
     $selectedEntities = isset($_POST['entities']) && is_array($_POST['entities'])
         ? array_map('intval', $_POST['entities'])
         : [];
@@ -105,7 +109,7 @@ Html::header(__('Chamados em Múltiplas Entidades', 'multticket'), $_SERVER['PHP
                                         <i class="ti ti-user-circle me-2"></i> <?php echo __('Meu Cadastro / Perfil', 'multticket'); ?>
                                     </a>
                                 </li>
-                                <?php if (Session::isSuperAdmin()): ?>
+                                <?php if (PluginMultticketProfile::isSuperAdmin()): ?>
                                     <li>
                                         <a class="dropdown-item" href="<?php echo $CFG_GLPI['root_doc']; ?>/plugins/multticket/front/audit.php">
                                             <i class="ti ti-history me-2 text-warning"></i> <?php echo __('Auditoria do Plugin (Superadmin)', 'multticket'); ?>
@@ -324,6 +328,24 @@ Html::header(__('Chamados em Múltiplas Entidades', 'multticket'), $_SERVER['PHP
                                 ?>
                             </div>
                         </div>
+
+                        <!-- CAMPOS ADICIONAIS CONFIGURADOS NO PLUGIN -->
+                        <?php if (!empty($enabledAdditionalFields)): ?>
+                            <hr class="my-3">
+                            <div class="mb-2 d-flex align-items-center justify-content-between">
+                                <h4 class="subheader text-primary mb-0">
+                                    <i class="ti ti-forms me-1"></i> <?php echo __('Campos Adicionais do Chamado', 'multticket'); ?>
+                                </h4>
+                                <span class="badge bg-azure-lt">
+                                    <?php echo sprintf(__('%d campo(s)', 'multticket'), count($enabledAdditionalFields)); ?>
+                                </span>
+                            </div>
+                            <div class="row g-3 mb-3">
+                                <?php foreach ($enabledAdditionalFields as $addField): ?>
+                                    <?php PluginMultticketConfig::renderAdditionalFieldInput($addField, $currentEntityId, $_POST); ?>
+                                <?php endforeach; ?>
+                            </div>
+                        <?php endif; ?>
 
                         <!-- OPÇÃO DE LIGAÇÃO ENTRE CHAMADOS GERADOS -->
                         <div class="form-check form-switch mt-3">

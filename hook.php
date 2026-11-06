@@ -39,7 +39,7 @@ function plugin_multticket_install(): bool {
             `details` TEXT DEFAULT NULL,
             `ip_address` VARCHAR(45) DEFAULT NULL,
             `is_deleted` TINYINT(1) NOT NULL DEFAULT 0,
-            `date_creation` DATETIME DEFAULT CURRENT_TIMESTAMP,
+            `date_creation` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
             PRIMARY KEY (`id`),
             KEY `entities_id` (`entities_id`),
             KEY `users_id` (`users_id`),
@@ -47,9 +47,9 @@ function plugin_multticket_install(): bool {
             KEY `batch_id` (`batch_id`),
             KEY `is_deleted` (`is_deleted`),
             KEY `date_creation` (`date_creation`)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;";
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci ROW_FORMAT=DYNAMIC;";
 
-        $DB->queryOrDie($queryAudit, "Erro ao criar tabela glpi_plugin_multticket_audits: " . $DB->error());
+        $DB->doQuery($queryAudit);
     }
 
     // 2. Tabela de Configurações do Plugin por Entidade (Multitenant)
@@ -62,15 +62,21 @@ function plugin_multticket_install(): bool {
             `default_urgency` INT(11) UNSIGNED NOT NULL DEFAULT 3,
             `default_impact` INT(11) UNSIGNED NOT NULL DEFAULT 3,
             `link_tickets` TINYINT(1) NOT NULL DEFAULT 0,
+            `displayed_additional_fields` LONGTEXT DEFAULT NULL,
             `is_deleted` TINYINT(1) NOT NULL DEFAULT 0,
-            `date_mod` DATETIME DEFAULT NULL,
-            `date_creation` DATETIME DEFAULT CURRENT_TIMESTAMP,
+            `date_mod` TIMESTAMP NULL DEFAULT NULL,
+            `date_creation` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
             PRIMARY KEY (`id`),
             UNIQUE KEY `unicity` (`entities_id`),
             KEY `is_deleted` (`is_deleted`)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;";
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci ROW_FORMAT=DYNAMIC;";
 
-        $DB->queryOrDie($queryConfig, "Erro ao criar tabela glpi_plugin_multticket_configs: " . $DB->error());
+        $DB->doQuery($queryConfig);
+    } elseif (!$DB->fieldExists('glpi_plugin_multticket_configs', 'displayed_additional_fields', false)) {
+        $DB->doQuery("ALTER TABLE `glpi_plugin_multticket_configs` ADD COLUMN `displayed_additional_fields` LONGTEXT DEFAULT NULL AFTER `link_tickets`;");
+        if (method_exists($DB, 'clearSchemaCache')) {
+            $DB->clearSchemaCache();
+        }
     }
 
     // Inicialização da configuração padrão na entidade raiz (ID 0)

@@ -14,7 +14,8 @@ if (!defined('GLPI_ROOT')) {
     die("Acesso direto não permitido.");
 }
 
-class PluginMultticketEntity extends CommonDBTM {
+class PluginMultticketEntity extends CommonDBTM
+{
 
     public static $rightname = 'entity';
 
@@ -26,7 +27,8 @@ class PluginMultticketEntity extends CommonDBTM {
      * @param bool $onlyAccessible Se true, filtra pelas entidades autorizadas para o usuário ativo
      * @return array Lista de entidades com id, name, completename, level e metadados
      */
-    public static function getEntitiesUpToLevel2(bool $onlyAccessible = true): array {
+    public static function getEntitiesUpToLevel2(bool $onlyAccessible = true): array
+    {
         global $DB;
 
         // Condição restritiva essencial: Apenas entidades com level <= 2
@@ -35,38 +37,38 @@ class PluginMultticketEntity extends CommonDBTM {
         ];
 
         // Se o usuário não for superadmin e deve respeitar acessos
-        if ($onlyAccessible && !Session::isSuperAdmin()) {
+        if ($onlyAccessible && !PluginMultticketProfile::isSuperAdmin()) {
             $activeEntities = $_SESSION['glpiactiveentities'] ?? [];
             if (!empty($activeEntities) && is_array($activeEntities)) {
                 $where['id'] = array_map('intval', $activeEntities);
             } else {
                 // Caso não tenha entidades ativas identificadas, restringe à entidade atual
-                $where['id'] = (int)($_SESSION['glpiactive_entity'] ?? 0);
+                $where['id'] = (int) ($_SESSION['glpiactive_entity'] ?? 0);
             }
         }
 
         $iterator = $DB->request([
-            'SELECT'   => ['id', 'name', 'completename', 'entities_id', 'level', 'comment'],
-            'FROM'     => 'glpi_entities',
-            'WHERE'    => $where,
-            'ORDERBY'  => ['level ASC', 'completename ASC']
+            'SELECT' => ['id', 'name', 'completename', 'entities_id', 'level', 'comment'],
+            'FROM' => 'glpi_entities',
+            'WHERE' => $where,
+            'ORDERBY' => ['level ASC', 'completename ASC']
         ]);
 
         $entities = [];
         foreach ($iterator as $row) {
-            $level = (int)$row['level'];
+            $level = (int) $row['level'];
             $badge = PluginMultticketEntityLevel::getBadgeInfo($level);
 
-            $entities[(int)$row['id']] = [
-                'id'           => (int)$row['id'],
-                'name'         => $row['name'] ?: __('(Sem nome)', 'multticket'),
+            $entities[(int) $row['id']] = [
+                'id' => (int) $row['id'],
+                'name' => $row['name'] ?: __('(Sem nome)', 'multticket'),
                 'completename' => $row['completename'] ?: $row['name'],
-                'entities_id'  => (int)$row['entities_id'],
-                'level'        => $level,
-                'level_label'  => PluginMultticketEntityLevel::getLabel($level),
-                'badge_class'  => $badge['badge_class'],
-                'badge_icon'   => $badge['icon'],
-                'comment'      => $row['comment'] ?? ''
+                'entities_id' => (int) $row['entities_id'],
+                'level' => $level,
+                'level_label' => PluginMultticketEntityLevel::getLabel($level),
+                'badge_class' => $badge['badge_class'],
+                'badge_icon' => $badge['icon'],
+                'comment' => $row['comment'] ?? ''
             ];
         }
 
@@ -82,20 +84,21 @@ class PluginMultticketEntity extends CommonDBTM {
      * @param int $entityId ID da entidade a verificar
      * @return boolean
      */
-    public static function isValidEntityForSelection(int $entityId): bool {
+    public static function isValidEntityForSelection(int $entityId): bool
+    {
         global $DB;
 
-        $entityId = (int)$entityId;
+        $entityId = (int) $entityId;
 
         // Verifica na base se o level é <= 2
         $iterator = $DB->request([
             'SELECT' => ['id', 'level'],
-            'FROM'   => 'glpi_entities',
-            'WHERE'  => [
-                'id'    => $entityId,
+            'FROM' => 'glpi_entities',
+            'WHERE' => [
+                'id' => $entityId,
                 'level' => ['<=', PluginMultticketEntityLevel::MAX_ALLOWED_LEVEL]
             ],
-            'LIMIT'  => 1
+            'LIMIT' => 1
         ]);
 
         if (count($iterator) === 0) {
@@ -103,7 +106,7 @@ class PluginMultticketEntity extends CommonDBTM {
         }
 
         // Se for SuperAdmin, tem permissão irrestrita
-        if (Session::isSuperAdmin()) {
+        if (PluginMultticketProfile::isSuperAdmin()) {
             return true;
         }
 
@@ -116,11 +119,12 @@ class PluginMultticketEntity extends CommonDBTM {
      *
      * @return array [1 => total_nivel_1, 2 => total_nivel_2, 'total' => total_geral]
      */
-    public static function getEntityCountSummary(): array {
+    public static function getEntityCountSummary(): array
+    {
         $entities = self::getEntitiesUpToLevel2(true);
         $summary = [
-            1       => 0,
-            2       => 0,
+            1 => 0,
+            2 => 0,
             'total' => count($entities)
         ];
 

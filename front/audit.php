@@ -10,11 +10,16 @@
  * ---------------------------------------------------------------------
  */
 
-include ("../../../inc/includes.php");
+// Compatibilidade de inicialização: GLPI 11 (Symfony Kernel) e GLPI 10 (Legacy)
+if (!defined('GLPI_ROOT')) {
+    include ("../../../inc/includes.php");
+}
+
+global $CFG_GLPI;
 
 // Verificação estrita: Exclusivo para SuperAdmin
 Session::checkLoginUser();
-if (!Session::isSuperAdmin()) {
+if (!PluginMultticketProfile::isSuperAdmin()) {
     Html::displayRightError();
 }
 

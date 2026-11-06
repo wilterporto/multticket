@@ -95,7 +95,89 @@ class PluginMultticketTicket extends CommonDBTM {
             ];
         }
 
-        // 4. Parâmetros do Chamado com Enumeradores e Defaults
+        // 4. Validação e preparação dos Campos Adicionais configurados para exibição
+        if (class_exists('Plugin') && method_exists('Plugin', 'isPluginActive') && \Plugin::isPluginActive('fields')) {
+            if (!class_exists('PluginFieldsContainer') && method_exists('Plugin', 'load')) {
+                \Plugin::load('fields');
+            }
+        }
+
+        $currentEntityId = (int)($_SESSION['glpiactive_entity'] ?? 0);
+        $enabledAdditionalFields = PluginMultticketConfig::getEnabledAdditionalFieldsForTicketForm($currentEntityId);
+        $additionalFieldsByContainer = [];
+
+        foreach ($enabledAdditionalFields as $fId => $fieldMeta) {
+            $fType      = (string)$fieldMeta['type'];
+            $fName      = (string)$fieldMeta['name'];
+            $fLabel     = (string)$fieldMeta['label'];
+            $fMandatory = (int)($fieldMeta['mandatory'] ?? 0) === 1;
+            $fReadonly  = (int)($fieldMeta['is_readonly'] ?? 0) === 1;
+            $cId        = (int)$fieldMeta['plugin_fields_containers_id'];
+
+            if (!isset($additionalFieldsByContainer[$cId])) {
+                $additionalFieldsByContainer[$cId] = [
+                    'plugin_fields_containers_id' => $cId,
+                ];
+            }
+
+            if ($fType === 'glpi_item') {
+                $itemtypeKey = 'itemtype_' . $fName;
+                $itemsIdKey  = 'items_id_' . $fName;
+                $valType     = trim((string)($formData[$itemtypeKey] ?? ''));
+                $valId       = (int)($formData[$itemsIdKey] ?? 0);
+
+                if ($fMandatory && !$fReadonly && (empty($valType) || $valId <= 0)) {
+                    return [
+                        'success'  => false,
+                        'message'  => sprintf(__('O campo adicional "%s" é obrigatório!', 'multticket'), $fLabel),
+                        'created'  => [],
+                        'errors'   => [],
+                        'batch_id' => ''
+                    ];
+                }
+
+                if (!empty($valType) && $valId > 0) {
+                    $additionalFieldsByContainer[$cId][$itemtypeKey] = $valType;
+                    $additionalFieldsByContainer[$cId][$itemsIdKey]  = $valId;
+                }
+                continue;
+            }
+
+            $inputKey = ($fType === 'dropdown') ? ('plugin_fields_' . $fName . 'dropdowns_id') : $fName;
+            $rawValue = $formData[$inputKey] ?? null;
+
+            if ($fType === 'datetime' && is_string($rawValue) && str_contains($rawValue, 'T')) {
+                $rawValue = str_replace('T', ' ', $rawValue);
+                if (strlen($rawValue) === 16) {
+                    $rawValue .= ':00';
+                }
+            }
+
+            if ($fMandatory && !$fReadonly && $fType !== 'yesno') {
+                $isEmpty = ($rawValue === null || $rawValue === '' || $rawValue === []
+                    || (($fType === 'dropdown' || str_starts_with($fType, 'dropdown-')) && (int)$rawValue === 0)
+                    || (in_array($fType, ['date', 'datetime'], true) && $rawValue === 'NULL'));
+
+                if ($isEmpty) {
+                    return [
+                        'success'  => false,
+                        'message'  => sprintf(__('O campo adicional "%s" é obrigatório!', 'multticket'), $fLabel),
+                        'created'  => [],
+                        'errors'   => [],
+                        'batch_id' => ''
+                    ];
+                }
+            }
+
+            if ($rawValue !== null) {
+                $additionalFieldsByContainer[$cId][$inputKey] = $rawValue;
+            } elseif (!empty($fieldMeta['multiple']) && isset($formData['_' . $inputKey . '_defined'])) {
+                $additionalFieldsByContainer[$cId][$inputKey] = [];
+                $additionalFieldsByContainer[$cId]['_' . $inputKey . '_defined'] = 1;
+            }
+        }
+
+        // 5. Parâmetros do Chamado com Enumeradores e Defaults
         $type              = isset($formData['type']) ? (int)$formData['type'] : PluginMultticketTicketType::DEMAND;
         $urgency           = isset($formData['urgency']) ? (int)$formData['urgency'] : PluginMultticketUrgency::MEDIUM;
         $impact            = isset($formData['impact']) ? (int)$formData['impact'] : PluginMultticketImpact::MEDIUM;
@@ -113,7 +195,7 @@ class PluginMultticketTicket extends CommonDBTM {
         $createdTickets = [];
         $failedEntities = [];
 
-        // 5. Criação sequencial de um chamado para cada entidade selecionada
+        // 6. Criação sequencial de um chamado para cada entidade selecionada
         foreach ($validEntities as $entityId => $entityData) {
             $ticket = new Ticket();
 
@@ -145,10 +227,38 @@ class PluginMultticketTicket extends CommonDBTM {
                 $input['time_to_resolve'] = $timeToResolve;
             }
 
+            // Inclui os campos adicionais também no input do chamado
+            foreach ($additionalFieldsByContainer as $cId => $containerPayload) {
+                foreach ($containerPayload as $k => $v) {
+                    if ($k !== 'plugin_fields_containers_id') {
+                        $input[$k] = $v;
+                    }
+                }
+            }
+
             // Executa a adição do chamado no GLPI
             $ticketId = $ticket->add($input);
 
             if ($ticketId && $ticketId > 0) {
+                // Persiste os valores de todos os containers de campos adicionais configurados
+                if (!empty($additionalFieldsByContainer) && class_exists('PluginFieldsContainer')) {
+                    foreach ($additionalFieldsByContainer as $cId => $containerPayload) {
+                        if (count($containerPayload) <= 1) {
+                            continue;
+                        }
+                        try {
+                            $fieldsContainer = new PluginFieldsContainer();
+                            $payloadToSave = $containerPayload;
+                            $payloadToSave['items_id']    = (int)$ticketId;
+                            $payloadToSave['itemtype']    = 'Ticket';
+                            $payloadToSave['entities_id'] = (int)$entityId;
+                            $fieldsContainer->updateFieldsValues($payloadToSave, 'Ticket', false);
+                        } catch (\Throwable $e) {
+                            error_log("Erro ao salvar campos adicionais no chamado #{$ticketId}: " . $e->getMessage());
+                        }
+                    }
+                }
+
                 $createdTickets[] = [
                     'ticket_id'    => (int)$ticketId,
                     'entity_id'    => $entityId,

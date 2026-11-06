@@ -86,7 +86,7 @@ class PluginMultticketAudit extends CommonDBTM {
         // Filtro Multitenant: superadmin pode filtrar por qualquer entidade; demais apenas a permitida
         if (isset($filters['entities_id']) && $filters['entities_id'] !== '' && $filters['entities_id'] !== 'all') {
             $where['entities_id'] = (int)$filters['entities_id'];
-        } elseif (!Session::isSuperAdmin()) {
+        } elseif (!PluginMultticketProfile::isSuperAdmin()) {
             $activeEntities = $_SESSION['glpiactiveentities'] ?? [];
             if (!empty($activeEntities)) {
                 $where['entities_id'] = array_map('intval', $activeEntities);
